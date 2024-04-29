@@ -1,1 +1,27 @@
+variable "stack_name" {
+  description = "The name of the CloudFormation stack"
+}
+
+variable "template_body" {
+  description = "The JSON template body for the CloudFormation stack"
+}
+
+variable "tags" {
+  description = "A map of tags to apply to the CloudFormation stack"
+  type        = map(string)
+  default     = {}
+}
+
+variable "timeout_in_minutes" {
+  description = "The maximum amount of time (in minutes) that CloudFormation waits for the stack to complete execution"
+  type        = number
+  default     = 30
+}
+
+resource "aws_cloudformation_stack" "SplunkDM" {
+  name              = var.stack_name
+  template_body     = var.template_body
+  tags              = var.tags
+  timeout_in_minutes = var.timeout_in_minutes
+}
 something went wrong
