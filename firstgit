@@ -1,1 +1,11 @@
-Demo how to push to git
+resource "aws_cloudformation_stack_set_instance" "SplunkDM" {
+  account_id     = "${data.aws_caller_identity.current}"
+  region         = "${data.aws_region_current}"
+  stack_set_name = aws_cloudformation_stack_set.SplunkDM.name
+  
+  operation_preferences = {
+    region_order            = ["us-west-2"]
+    failure_tolerance_count = 1
+    max_concurrent_count    = 1
+  }
+}Demo how to push to git
