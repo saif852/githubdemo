@@ -24,7 +24,7 @@ variable "external_id" {
 
   validation {
     condition = length(var.external_id) == 36 && can(regex("^\\w{8}-\\w{4}-\\w{4}-\\w{4}-\\w{12}$", var.external_id))
-    error_message = "External ID must be a 36-character string in the format xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+    error_message = "External ID must be a 36-character string in the format "abcd1234-ab12-ef34-5678-987654321abc"
   }
 }
 
