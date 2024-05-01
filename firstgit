@@ -3,7 +3,7 @@ resource "aws_cloudformation_stack_set_instance" "SplunkDM" {
   region         = data.aws_region.current.name
   stack_set_name = aws_cloudformation_stack_set.SplunkDM.name
   
-  operation_preferences = {
+  operation_preferences {
     region_order            = ["us-west-2"]
     failure_tolerance_count = 1
     max_concurrent_count    = 1
