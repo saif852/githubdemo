@@ -25,3 +25,14 @@ resource "aws_cloudformation_stack" "SplunkDM" {
   timeout_in_minutes = var.timeout_in_minutes
 }
 something went wrong
+resource "aws_cloudformation_stack_set_instance" "SplunkDM" {
+  account_id     = "${data.aws_caller_identity.current.account_id}"
+  region         = "${data.aws_region.current.name}"
+  stack_set_name = aws_cloudformation_stack_set.SplunkDMDataIngest.name
+  
+  operation_preferences = {
+    region_order            = ["us-west-2"]
+    failure_tolerance_count = 1
+    max_concurrent_count    = 1
+  }
+}
