@@ -1,9 +1,11 @@
 variable "external_id" {
   description = "External ID for the IAM role"
+  type        = string
 }
 
 variable "trusted_role_arn" {
   description = "ARN of the trusted IAM role"
+  type        = string
 }
 
 resource "aws_iam_policy" "example_policy" {
