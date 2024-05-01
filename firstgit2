@@ -1,1 +1,31 @@
-demo 2
+variable "external_id" {
+  description = "External ID for the IAM role"
+}
+
+variable "trusted_role_arn" {
+  description = "ARN of the trusted IAM role"
+}
+
+resource "aws_iam_policy" "example_policy" {
+  name        = "example_policy"
+  description = "Example IAM policy"
+
+  policy = jsonencode({
+    "Version": "2012-10-17",
+    "Statement": [
+      {
+        "Sid": "SplunkDMReadOnlyTrustRelationship",
+        "Effect": "Allow",
+        "Action": "sts:AssumeRole",
+        "Principal": {
+          "AWS": "${var.trusted_role_arn}"
+        },
+        "Condition": {
+          "StringEquals": {
+            "sts:ExternalId": "${var.external_id}"
+          }
+        }
+      }
+    ]
+  })
+}
