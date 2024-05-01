@@ -8,6 +8,26 @@ variable "trusted_role_arn" {
   type        = string
 }
 
+variable "trusted_role_arn" {
+  description = "ARN of the trusted IAM role"
+  type        = string
+
+  validation {
+    condition = can(regex("^arn:aws:iam::[0-9]+:role/.+$", var.trusted_role_arn))
+    error_message = "ARN must be in the format 'arn:aws:iam::<account_id>:role/<role_name>'"
+  }
+}
+
+variable "external_id" {
+  description = "External ID for the IAM role"
+  type        = string
+
+  validation {
+    condition = length(var.external_id) == 36 && can(regex("^\\w{8}-\\w{4}-\\w{4}-\\w{4}-\\w{12}$", var.external_id))
+    error_message = "External ID must be a 36-character string in the format xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+  }
+}
+
 resource "aws_iam_policy" "example_policy" {
   name        = "example_policy"
   description = "Example IAM policy"
