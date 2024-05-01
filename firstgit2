@@ -28,6 +28,16 @@ variable "external_id" {
   }
 }
 
+variable "external_id" {
+  description = "External ID for the IAM role"
+  type        = string
+
+  validation {
+    condition = can(regex("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", var.external_id))
+    error_message = "External ID must be in the format '96d778ff-3527-11ee-b485-d3f6926b1058'"
+  }
+}
+
 resource "aws_iam_policy" "example_policy" {
   name        = "example_policy"
   description = "Example IAM policy"
