@@ -36,3 +36,4 @@ resource "aws_cloudformation_stack_set_instance" "SplunkDM" {
     max_concurrent_count    = 1
   }
 }
+https://github.com/devopstia/terraform-course-del/blob/main/aws-terraform/terraform-concepts/terraform-try-function/example-02/main.tf
