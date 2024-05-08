@@ -9,3 +9,53 @@ resource "aws_cloudformation_stack_set_instance" "SplunkDM" {
     max_concurrent_count    = 1
   }
 }
+# Define a list of regions where you want to deploy the StackSet
+variable "regions" {
+  type    = list(string)
+  default = ["us-west-2", "eu-west-1"]  # Add or remove regions as needed
+}
+
+# Define a list of AWS account IDs where you want to deploy the StackSet
+variable "account_ids" {
+  type    = list(string)
+  default = ["123456789012", "123456789013"]  # Add or remove account IDs as needed
+}
+
+# Configure AWS provider
+provider "aws" {
+  region = var.regions[0]  # Use the first region for provider configuration
+}
+
+# Define CloudFormation StackSet
+resource "aws_cloudformation_stack_set" "example_stackset" {
+  name                   = "example-stackset"
+  template_body          = file("example-stackset-template.yaml")
+  capabilities           = ["CAPABILITY_IAM", "CAPABILITY_NAMED_IAM"]
+  administration_role_arn = "arn:aws:iam::123456789012:role/CloudFormationStackSetAdministrationRole" # Specify the ARN of your administration role
+
+  # Iterate over the list of regions and AWS account IDs
+  dynamic "stack_instances" {
+    for_each = { for idx, region in var.regions : idx => {
+      region = region
+      accounts = [var.account_ids[idx]]
+    }}
+
+    content {
+      region = stack_instances.value.region
+
+      deployment_targets {
+        accounts = stack_instances.value.accounts
+      }
+    }
+  }
+}
+
+# Plan and Apply the Terraform configuration
+terraform {
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 3.0"
+    }
+  }
+}
