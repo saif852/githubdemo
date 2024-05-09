@@ -139,4 +139,21 @@ output "caller_identities" {
   }
 }
 
+variable "provider_config" {
+  type = object({
+    alias   = string
+    profile = string
+    region  = string
+  })
+}
+
+provider "aws" {
+  alias   = var.provider_config.alias
+  profile = var.provider_config.profile
+  region  = var.provider_config.region
+}
+
+data "aws_caller_identity" "current" {}
+
+
 
