@@ -1,0 +1,14 @@
+module "caller_identities" {
+  source = "./caller_identity_module"
+
+  aws_contexts = {
+    account1 = {
+      profile = "profile1"
+      region  = "us-west-1"
+    }
+    account2 = {
+      profile = "profile2"
+      region  = "us-west-2"
+    }
+  }
+}
