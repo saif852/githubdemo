@@ -29,3 +29,23 @@ module "caller_identities" {
     }
   }
 }
+
+module "caller_identities" {
+  source = "./caller_identity_module"
+
+  target_admin_role_arn = "arn:aws:iam::ACCOUNT_ID:role/ROLE_NAME"
+
+  aws_contexts = {
+    account1 = {
+      profile   = "profile1"
+      region    = "us-west-1"
+      role_arn  = var.target_admin_role_arn
+    }
+    account2 = {
+      profile   = "profile2"
+      region    = "us-west-2"
+      role_arn  = var.target_admin_role_arn
+    }
+  }
+}
+
