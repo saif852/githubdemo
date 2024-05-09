@@ -1,0 +1,24 @@
+variable "aws_contexts" {
+  type = map(object({
+    profile = string
+    region  = string
+  }))
+}
+
+provider "aws" {
+  for_each = var.aws_contexts
+
+  alias   = each.key
+  profile = each.value.profile
+  region  = each.value.region
+}
+
+data "aws_caller_identity" "current" {
+  for_each = var.aws_contexts
+}
+
+output "caller_identities" {
+  value = {
+    for key, caller_identity in data.aws_caller_identity.current : key => caller_identity.account_id
+  }
+}
