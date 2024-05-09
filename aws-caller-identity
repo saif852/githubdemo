@@ -22,3 +22,78 @@ output "caller_identities" {
     for key, caller_identity in data.aws_caller_identity.current : key => caller_identity.account_id
   }
 }
+variable "aws_contexts" {
+  type = map(object({
+    profile   = string
+    region    = string
+    role_arn  = string
+  }))
+}
+
+data "aws_security_token" "assume_role" {
+  for_each = var.aws_contexts
+
+  provider = aws.assume_role
+  role_arn = each.value.role_arn
+}
+
+provider "aws" {
+  for_each = var.aws_contexts
+
+  alias   = each.key
+  region  = each.value.region
+
+  assume_role {
+    role_arn = each.value.role_arn
+  }
+}
+
+data "aws_caller_identity" "current" {
+  for_each = var.aws_contexts
+
+  provider = aws[each.key]
+}
+
+output "caller_identities" {
+  value = {
+    for key, caller_identity in data.aws_caller_identity.current : key => caller_identity.account_id
+  }
+}
+variable "aws_contexts" {
+  type = map(object({
+    profile   = string
+    region    = string
+    role_arn  = string
+  }))
+}
+
+data "aws_security_token" "assume_role" {
+  for_each = var.aws_contexts
+
+  provider = aws.assume_role
+  role_arn = each.value.role_arn
+}
+
+provider "aws" {
+  for_each = var.aws_contexts
+
+  alias   = each.key
+  region  = each.value.region
+
+  assume_role {
+    role_arn = each.value.role_arn
+  }
+}
+
+data "aws_caller_identity" "current" {
+  for_each = var.aws_contexts
+
+  provider = aws[each.key]
+}
+
+output "caller_identities" {
+  value = {
+    for key, caller_identity in data.aws_caller_identity.current : key => caller_identity.account_id
+  }
+}
+
