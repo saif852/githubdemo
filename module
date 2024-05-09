@@ -48,4 +48,30 @@ module "caller_identities" {
     }
   }
 }
+module "caller_identity_1" {
+  source = "./caller_identity_module"
+  provider_config = {
+    alias   = "account1"
+    profile = "profile1"
+    region  = "us-west-1"
+  }
+}
+
+module "caller_identity_2" {
+  source = "./caller_identity_module"
+  provider_config = {
+    alias   = "account2"
+    profile = "profile2"
+    region  = "us-west-2"
+  }
+}
+
+output "caller_identity_account1" {
+  value = module.caller_identity_1.data.aws_caller_identity.current
+}
+
+output "caller_identity_account2" {
+  value = module.caller_identity_2.data.aws_caller_identity.current
+}
+
 
