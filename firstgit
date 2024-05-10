@@ -18,7 +18,7 @@ variable "regions" {
 # Define a list of AWS account IDs where you want to deploy the StackSet
 variable "account_ids" {
   type    = list(string)
-  default = ["123456789012", "123456789013"]  # Add or remove account IDs as needed
+  default = []  # Add or remove account IDs as needed
 }
 
 # Configure AWS provider
