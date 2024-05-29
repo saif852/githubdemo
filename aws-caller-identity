@@ -156,4 +156,42 @@ provider "aws" {
 data "aws_caller_identity" "current" {}
 
 
+Error: Reference to undeclared module
+│
+│   on output.tf line 2, in output "bucket_domain_name":
+│    2:   value = module.aws_s3_bucket.sdm-dataingest-cft.bucket_domain_name
+│
+│ No module call named "aws_s3_bucket" is declared in the root module.
+╵
+╷
+│ Error: Reference to undeclared module
+│
+│   on splunk.tf line 4, in module "splunk-s3":
+│    4:    bucket_domain_name     = module.aws_s3_bucket.sdm-dataingest-cft.bucket_domain_name
+│
+│ No module call named "aws_s3_bucket" is declared in the root module.
+╵
+
+C:\Users\IslamM\test3\terraform>terraform plan
+╷
+│ Error: Unsupported attribute
+│
+│   on output.tf line 2, in output "bucket_domain_name":
+│    2:   value = module.splunk-s3.sdm-dataingest-cft.bucket_domain_name
+│     ├────────────────
+│     │ module.splunk-s3 is a object
+│
+│ This object does not have an attribute named "sdm-dataingest-cft".
+╵
+╷
+│ Error: Unsupported attribute
+│
+│   on splunk.tf line 4, in module "splunk-s3":
+│    4:    bucket_domain_name     = module.splunk-s3.sdm-dataingest-cft.bucket_domain_name
+│     ├────────────────
+│     │ module.splunk-s3 is a object
+│
+│ This object does not have an attribute named "sdm-dataingest-cft".
+
+
 
