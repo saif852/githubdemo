@@ -86,3 +86,16 @@ variable "tags" {
     }
   ]
 }
+variable "tags" {
+  type = map(string)
+
+  validation {
+    condition     = contains(keys(var.tags), "SplunkDMVersion") && contains(["1", "2"], var.tags["SplunkDMVersion"])
+    error_message = "The 'SplunkDMVersion' tag must be set to either '1' or '2'."
+  }
+
+  default = {
+    Name            = "example-instance"
+    SplunkDMVersion = "2"
+  }
+}
