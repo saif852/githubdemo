@@ -1,0 +1,40 @@
+#!/bin/bash
+
+# Variables
+AWS_REGION="<your-aws-region>"
+GITHUB_USERNAME="<your-github-username>"
+REPOS=("repo1" "repo2" "repo3") # List of repositories to migrate
+LOCAL_REPO_DIR="/tmp"
+
+# Loop through each repository
+for REPO in "${REPOS[@]}"; do
+    # Define the repository URLs
+    CODECOMMIT_URL="https://git-codecommit.${AWS_REGION}.amazonaws.com/v1/repos/${REPO}"
+    GITHUB_URL="https://github.com/${GITHUB_USERNAME}/${REPO}.git"
+    
+    # Define the local directory for the repository
+    REPO_DIR="${LOCAL_REPO_DIR}/${REPO}.git"
+
+    # Clone the CodeCommit repository
+    echo "Cloning CodeCommit repository ${REPO}..."
+    git clone --mirror $CODECOMMIT_URL $REPO_DIR
+
+    # Navigate to the local repository directory
+    cd $REPO_DIR
+
+    # Add GitHub remote
+    echo "Adding GitHub remote for ${REPO}..."
+    git remote add github $GITHUB_URL
+
+    # Push to GitHub
+    echo "Pushing ${REPO} to GitHub..."
+    git push --mirror github
+
+    # Cleanup: Remove local repository directory
+    echo "Cleaning up ${REPO}..."
+    rm -rf $REPO_DIR
+
+    echo "Migration for ${REPO} completed successfully!"
+done
+
+echo "All migrations completed!"
