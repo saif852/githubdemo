@@ -1,0 +1,1 @@
+how to run this command_to_patch_websphere="F:\IBM\Installation Manager\eclipse\tools\imcl.exe" updateAll -iD F:\IBM\WebSphere\AppServer\ -repositories F:\temp\patches\repository.config -acceptLicense  with admin privilege in windows server using ansible playbook
