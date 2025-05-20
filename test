@@ -1,3 +1,108 @@
+#!/bin/bash
+
+set -e
+
+token_url="https://cobank.signalfx.com/v2/token"
+
+print_usage() {
+    echo "Usage: $0 --session-token TOKEN --name NAME --secret-id ID [--description TEXT]"
+    echo ""
+    echo "Required:"
+    echo "  --session-token TOKEN    Splunk session token"
+    echo "  --name NAME              Name of the access token"
+    echo "  --secret-id ID           The AWS Secrets Manager secret Id"
+    echo ""
+    echo "Optional:"
+    echo "  --description TEXT       Description of the access token"
+    echo "  --help                   Show this help message"
+    echo ""
+}
+
+# Parse named arguments
+while [[ "$#" -gt 0 ]]; do
+    case $1 in
+        --session-token) session_token="$2"; shift ;;
+        --name) name="$2"; shift ;;
+        --secret-id) secret_id="$2"; shift ;;
+        --description) description="$2"; shift ;;
+        --help) print_usage; exit 0 ;;
+        *) echo "Unknown parameter passed: $1"; print_usage; exit 1 ;;
+    esac
+    shift
+done
+
+# Check for required arguments
+if [[ -z "$session_token" ]]; then
+    echo "Error: --session-token is required"
+    print_usage
+    exit 1
+fi
+
+if [[ -z "$name" ]]; then
+    echo "Error: --name is required"
+    print_usage
+    exit 1
+fi
+
+if [[ -z "$secret_id" ]]; then
+    echo "Error: --secret-id is required"
+    print_usage
+    exit 1
+fi
+
+if [[ -z "$description" ]]; then
+    description="RUM token for $name created by Terraform"
+fi
+
+response=$(curl -s -w "%{http_code}" -o tmp_response.json -X POST "$token_url" \
+    -H "Content-Type: application/json" \
+    -H "X-SF-TOKEN: $session_token" \
+    -d "{
+            \"name\": \"$name\",
+            \"description\": \"$description\",
+            \"disabled\": false,
+            \"authScopes\": [
+                \"RUM\"
+            ],
+            \"limits\": {
+                \"categoryQuota\": {
+                    \"3\": \"137000\"
+                },
+                \"categoryNotificationThreshold\": {
+                    \"3\": \"68500\"
+                }
+            },
+            \"notifications\": [
+                {
+                    \"type\": \"Email\",
+                    \"email\": \"middlewhere@cobank.com\"
+                }
+            ],
+            \"secondsUntilExpiry\": 7776000
+        }")
+
+http_code="${response: -3}"
+body=$(cat tmp_response.json)
+
+rm -f tmp_response.json
+
+# Handle HTTP error codes
+if [[ "$http_code" -lt 200 || "$http_code" -ge 300 ]]; then
+    message=$(echo "$body" | jq -r '.message')
+    echo "HTTP $http_code: $message" >&2
+    exit 1
+fi
+
+token=$(echo "$body" | grep -o '"secret" : *"[^"]*"' | sed 's/"secret" : "//; s/"$//')
+
+secret_json=$( jq -nc \
+    --arg rt "$token" \
+    '{rum: $rt}' )
+
+aws secretsmanager put-secret-value --secret-id $secret_id --secret-string $secret_json
+
+
+
 variable "stack_name" {
   description = "The name of the CloudFormation stack"
 }
