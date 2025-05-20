@@ -1,0 +1,358 @@
+#!/bin/bash
+
+# Terra Factory terraform handler
+
+set -e
+
+# Default Values
+TERRAFORM_ACTION="plan"
+ENVIRONMENT="dev"
+TERRAFORM_ROOT="."
+TERRAFORM_WORKSPACE=
+TERRAFORM_WORKSPACE_PREFIX=
+BACKEND_TYPE="s3"
+REGION="us-west-2"
+AWS_REGION="us-west-2"
+STATEFILE_S3_PREFIX="${GITHUB_REPOSITORY}"
+TERRAFORM_USE_CUSTOM_BACKEND="false"
+
+VALID_ARGS=$(getopt -o a:b:e:f:i:l:n:o:p:r:t:w:c: --long terraform-action:,backend-type:,environment:,terra-factory-aws-id:,terraform-init-args:,log-level:,account-number:,terraform-other-args:,statefile-s3-prefix:,aws-region:,terraform-root:,terraform-workspace:,terraform-use-custom-backend: -- "$@")
+if [[ $? -ne 0 ]]; then
+    exit 1;
+fi
+
+eval set -- "$VALID_ARGS"
+while [ : ]; do
+  case "$1" in
+    -a | --terraform-action)
+        TERRAFORM_ACTION=$2
+        shift 2
+        ;;
+    -b | --backend-type)
+        BACKEND_TYPE=$2
+        shift 2
+        ;;
+    -e | --environment)
+        ENVIRONMENT=$2
+        shift 2
+        ;;
+    -f | --terra-factory-aws-id)
+        TERRA_FACTORY_AWS_ID=$2
+        shift 2
+        ;;
+    -i | --terraform-init-args)
+        TERRAFORM_INIT_ARGS=$2
+        shift 2
+        ;;
+    -l | --log-level)
+        LOG_LEVEL=$2
+        shift 2
+        ;;
+    -n | --account-number)
+        ACCOUNT_NUMBER=$2
+        shift 2
+        ;;
+    -o | --terraform-other-args)
+        TERRAFORM_OTHER_ARGS=$2
+        shift 2
+        ;;
+    -p | --statefile-s3-prefix)
+        STATEFILE_S3_PREFIX=$2
+        shift 2
+        ;;
+    -r | --aws-region)
+        AWS_REGION=$2
+        shift 2
+        ;;
+    -t | --terraform-root)
+        TERRAFORM_ROOT=$2
+        shift 2
+        ;;
+    -w | --terraform-workspace)
+        TERRAFORM_WORKSPACE=$2
+        shift 2
+        ;;
+    -c | --terraform-use-custom-backend)
+        TERRAFORM_USE_CUSTOM_BACKEND=$2
+        shift 2
+        ;;
+    --) shift; 
+        break 
+        ;;
+  esac
+done
+
+aws --version
+echo "TERRAFORM_ACTION ----> ${TERRAFORM_ACTION}"
+echo "TERRAFORM_USE_CUSTOM_BACKEND ----> ${TERRAFORM_USE_CUSTOM_BACKEND}"
+
+# Enabling Terraform log levels
+if [ -z ${LOG_LEVEL+x} ]; then
+    echo "LOG_LEVEL is not found"
+else
+    if [ "${LOG_LEVEL}" == "none" ]; then
+            echo "LOG_LEVEL is none"
+    else
+        echo "LOG_LEVEL is set to '$LOG_LEVEL'"
+        export TF_LOG=${LOG_LEVEL}
+    fi
+fi
+
+CURRENT_DIR="$(pwd)"
+# ls -al
+
+TERRAFORM_ROOT=${TERRAFORM_ROOT//.\//}
+
+echo "BACKEND_TYPE  --> ${BACKEND_TYPE}"
+if [ "${BACKEND_TYPE}" == "s3" ]; then
+
+echo "Terraform Workspace is -->${CURRENT_DIR}/${TERRAFORM_ROOT}"
+rm -f ${CURRENT_DIR}/${TERRAFORM_ROOT}/terra-factory-backend.tf || true
+rm -rf ${CURRENT_DIR}/${TERRAFORM_ROOT}/.terraform || true
+
+#echo "Creating s3 backend config for terra-factory"
+STATE_FILE_KEY="${TERRA_FACTORY_AWS_ID}-${ENVIRONMENT}/${STATEFILE_S3_PREFIX}/${TERRAFORM_ROOT}/${ENVIRONMENT}.terraform.tfstate"
+STATE_FILE_KEY=${STATE_FILE_KEY//\/.\//\/}
+
+if [ -n "$TERRAFORM_WORKSPACE" ]; then
+  STATE_FILE_KEY="${ENVIRONMENT}.terraform.tfstate"
+  TERRAFORM_WORKSPACE_PREFIX="\"${TERRA_FACTORY_AWS_ID}-${ENVIRONMENT}/${STATEFILE_S3_PREFIX}/${TERRAFORM_ROOT}\""
+fi
+
+if [ "${TERRAFORM_USE_CUSTOM_BACKEND}" == "false" ]; then
+echo "Creating terraform backend"
+/bin/cat <<EOF >${CURRENT_DIR}/${TERRAFORM_ROOT}/terra-factory-backend.tf
+terraform {
+  backend "s3" {
+    bucket = "terra-factory-${ACCOUNT_NUMBER}"
+    key = "${STATE_FILE_KEY}"
+    region = "${REGION}"
+    dynamodb_table = "terra-factory-${ACCOUNT_NUMBER}"
+    encrypt        = "true"
+    ${TERRAFORM_WORKSPACE_PREFIX:+workspace_key_prefix = ${TERRAFORM_WORKSPACE_PREFIX}}
+  }
+}
+EOF
+fi
+
+/bin/cat <<EOF >>${CURRENT_DIR}/${TERRAFORM_ROOT}/terra-factory-backend.tf
+variable environment {
+  type        = string
+  default     = "dev"
+}
+variable aws_region {
+  type        = string
+  default     = "us-west-2"
+}
+variable terra_factory_aws_id {
+  type        = string
+}
+variable aws_account_number {
+  type        = string
+}
+variable github_ref_name {
+  type        = string
+}
+variable github_run_id {
+  type        = string
+}
+variable github_commit_sha {
+  type        = string
+}
+variable github_repository {
+  type        = string
+}
+variable pr_merged {
+  type        = string
+}
+variable pr_number {
+  type        = string
+}
+variable pr_status {
+  type        = string
+}
+variable entra_terraform_client_secret {
+  type        = string
+}
+variable initialize {
+  type    = bool
+  default = false
+}
+variable uninstall {
+  type        = bool
+}
+variable update {
+  type        = bool
+}
+variable upgrade {
+  type        = bool
+}
+variable terra_factory_secret_1 {
+  type        = string
+}
+variable terra_factory_secret_2 {
+  type        = string
+}
+variable terra_factory_secret_3 {
+  type        = string
+}
+variable terra_factory_secret_4 {
+  type        = string
+}
+variable eks_oidc_host_ips {
+  type        = list
+  default = []
+}
+variable aws_account_list {
+  type        = list
+  default = []
+}
+variable github_pr_number {
+  type        = string
+  default     = "0"
+  description = "added in support of github promotion"
+}
+variable datavine {
+  type = string
+  default = null
+  description = "Added to support DataVine automation"
+}
+EOF
+
+################# Artifactory Configuration ################
+## Inject provider configuration to use Artifactory as the source instead of public registry
+/bin/cat <<EOF >~/.terraformrc
+provider_installation {
+    direct {
+        exclude = ["registry.terraform.io/*/*"]
+    }
+    network_mirror {
+        url = "https://cobank.jfrog.io/artifactory/api/terraform/terraform/providers/"
+    }
+}
+EOF
+
+## Create terraform credentials file to auth to Jfrog
+mkdir -p ~/.terraform.d
+/bin/cat <<EOF > ~/.terraform.d/credentials.tfrc.json
+{
+    "credentials": {
+        "cobank.jfrog.io": {
+            "token": "${ARTIFACTORY_OIDC_TOKEN}"
+            }
+        }
+    }
+EOF
+
+
+# cat ${CURRENT_DIR}/${TERRAFORM_ROOT}/terra-factory-backend.tf
+
+# Inject terraform variables from GITHUB default environment variables
+
+export TF_VAR_github_ref_name=${GITHUB_REF_NAME}
+export TF_VAR_github_run_id=${GITHUB_RUN_ID}
+export TF_VAR_github_commit_sha=$(git rev-parse --short HEAD)
+export TF_VAR_github_repository=${GITHUB_REPOSITORY}
+
+export TF_VAR_pr_merged=${pr_merged}
+export TF_VAR_pr_number=${pr_number}
+export TF_VAR_pr_status=${pr_status}
+
+export TF_VAR_aws_account_number=${ACCOUNT_NUMBER}
+
+#################################
+
+# Function to validate Terraform tags using OPA
+# Only validates in dev for now
+validate_tags_with_opa() {
+  if [[ "${ENVIRONMENT}" != "dev" ]]; then
+    echo -e "\033[36mSkipping tag validation."
+    return
+  fi
+
+  local tfplan_file=$1
+
+  # Determine the path to the OPA policy
+  if [[ -d "/usr/local/bin/opa_policies" ]]; then
+    opa_policy_path="/usr/local/bin/opa_policies"
+  else
+    opa_policy_path="${CURRENT_DIR}/terra-factory/opa_policies"
+  fi
+
+  echo -e "\033[36mValidating Terraform tags with OPA using 'opa exec'..."
+  opa_decision=$(opa exec --fail --decision opa_policies/authz -b ${opa_policy_path} --timeout 5s ${tfplan_file})
+  allowed=$(echo ${opa_decision} | jq -r '.result[].result')
+
+  if [[ "${allowed}" == "true" ]]; then
+    echo -e "\033[32mTag validation passed."
+  else
+    # echo -e "\033[33mTerraform plan content:\n\033[33m$(jq '.' ${tfplan_file})"
+    opa_eval=$(opa eval -i ${tfplan_file} -d ${opa_policy_path} "data.opa_policies.violation[x]")
+    echo -e "\033[31mTag validation failed. Violations:\n\033[31m$(echo "${opa_eval}" | jq -r '.result[].bindings[]')"
+    exit 1
+  fi
+}
+
+cd ${CURRENT_DIR}/${TERRAFORM_ROOT}
+git config --global url."https://${GH_USER}:${GH_TOKEN}@github.com".insteadOf https://github.com
+echo "terraform init ${TERRAFORM_INIT_ARGS}"
+echo "no" | terraform init ${TERRAFORM_INIT_ARGS}
+
+if [ -n "$TERRAFORM_WORKSPACE" ]; then
+  terraform workspace select -or-create ${TERRAFORM_WORKSPACE} 
+fi
+
+echo "terraform validate"
+
+terraform validate
+
+case "${TERRAFORM_ACTION}" in
+
+      plan)
+        echo -e "\033[36mterraform plan ${TERRAFORM_OTHER_ARGS} -input=false -out=tfplan.binary"
+        terraform plan ${TERRAFORM_OTHER_ARGS} -input=false -out=tfplan.binary
+        terraform show -json tfplan.binary > tfplan.json
+        validate_tags_with_opa tfplan.json
+        ;;
+
+      apply)
+        terraform plan ${TERRAFORM_OTHER_ARGS} -input=false -out=tfplan.binary
+        terraform show -json tfplan.binary > tfplan.json
+        validate_tags_with_opa tfplan.json
+        echo -e "\033[36mterraform apply tfplan.binary"
+        terraform apply tfplan.binary
+        ;;
+
+      destroy)
+        echo "terraform destroy -auto-approve ${TERRAFORM_OTHER_ARGS}"
+        terraform destroy -auto-approve ${TERRAFORM_OTHER_ARGS}
+        if [ -n "$TERRAFORM_WORKSPACE" ]; then
+          echo "terraform workspace delete ${TERRAFORM_WORKSPACE}"
+          terraform workspace select default
+          terraform workspace delete ${TERRAFORM_WORKSPACE}
+        fi
+        ;;
+
+      test)
+        echo "terraform test -verbose ${TERRAFORM_OTHER_ARGS}"
+        terraform test -verbose ${TERRAFORM_OTHER_ARGS}
+        ;;
+
+      unlock)
+        echo "Unlocking state file: ${STATE_FILE_KEY}"
+        dbQuery=$(aws dynamodb scan --table-name terra-factory-$ACCOUNT_NUMBER --filter-expression "LockID = :value" --expression-attribute-values '{":value":{"S":"terra-factory-'$ACCOUNT_NUMBER'/'$STATE_FILE_KEY'"}}' --query "Items[0].Info"  --region $REGION --output text)
+        echo "Dynamodb Query: ${dbQuery}"
+        lockID=$(echo $dbQuery | jq -r '.ID') || echo "Failed to get lockID from dynamodb"
+        terraform force-unlock -force "${lockID}"
+        ;;          
+        
+      *)
+        echo $"Usage: $0 {plan|apply|destroy|test|unlock}"
+        exit 1
+esac
+    
+fi
+
+rm -f ${CURRENT_DIR}/${TERRAFORM_ROOT}/terra-factory-backend.tf || true 
+rm -rf ${CURRENT_DIR}/${TERRAFORM_ROOT}/.terraform || true
+rm -f ${CURRENT_DIR}/${TERRAFORM_ROOT}/*.auto.tfvars || true
