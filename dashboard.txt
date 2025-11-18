@@ -1,0 +1,103 @@
+
+│ Invalid value for "path" parameter: no file exists at
+│ "./dashboard_json/sample_dashboard.xml"; this function works only with   
+│ files that are distributed as part of the configuration source code, so  
+│ if this file will be created by a resource in this configuration you     
+│ must instead obtain this result from an attribute of that resource.
+
+resource "null_resource" "dashboard_converter" {
+  # Trigger when JSON files change
+  triggers = {
+    json_files = join(",", fileset("${path.module}/dashboards_json", "*.json"))
+  }
+
+  provisioner "local-exec" {
+    command = <<-EOT
+      python test_xml.py || echo "Python script failed with exit code $?"
+    EOT
+    working_dir = "${path.module}"
+  }
+}
+
+resource "splunk_data_ui_views" "dashboard" {
+  for_each = var.dashboards
+  
+  # Depend on converter running first
+  depends_on = [null_resource.dashboard_converter]
+
+  name     = each.value.name
+  eai_data = file(each.value.file)
+
+  acl {
+    owner = each.value.owner
+    app   = each.value.app
+  }
+}
+
+
+
+import json
+import os
+import sys
+
+# Force UTF-8 encoding for output
+sys.stdout.reconfigure(encoding='utf-8')
+
+# === Configuration ===
+INPUT_DIR = "dashboards_json"   # Folder containing JSON dashboards
+META = {
+    "hideEdit": False,
+    "hideOpenInSearch": False,
+    "hideExport": False
+}
+
+# === Ask for theme if not passed as an argument ===
+if len(sys.argv) > 1:
+    theme = sys.argv[1]
+else:
+    theme = "dark"
+print(f"\n Using theme: '{theme}'")
+
+# === Process each JSON file ===
+for filename in os.listdir(INPUT_DIR):
+    if filename.endswith(".json"):
+        json_path = os.path.join(INPUT_DIR, filename)
+        xml_path = os.path.join(INPUT_DIR, os.path.splitext(filename)[0] + ".xml")
+
+        # Skip if XML already exists (optional)
+        # Uncomment below if you don't want to overwrite existing XML
+        # if os.path.exists(xml_path):
+        #     print(f"⏭️ Skipping (already exists): {filename}")
+        #     continue
+
+        with open(json_path, "r") as f:
+            dashboard_json = json.load(f)
+
+        # Extract details
+        dashboard_name = dashboard_json.get("title", os.path.splitext(filename)[0])
+        dashboard_desc = dashboard_json.get("description", "Sample Description")
+
+        # Format JSON + meta for embedding
+        json_str = json.dumps(dashboard_json, indent=4)
+        meta_str = json.dumps(META, indent=3)
+
+        # Build XML structure
+        xml_content = f"""<dashboard version="2" theme="{theme}">
+   <label>{dashboard_name}</label>
+   <description>{dashboard_desc}</description>
+   <definition><![CDATA[
+{json_str}
+   ]]></definition>
+   <meta type="hiddenElements"><![CDATA[
+{meta_str}
+   ]]></meta>
+</dashboard>
+"""
+
+        # Write output XML
+        with open(xml_path, "w") as out:
+            out.write(xml_content)
+
+        print(f" Converted: {filename} → {os.path.basename(xml_path)}")
+
+print("\n All JSON dashboards converted successfully!")
