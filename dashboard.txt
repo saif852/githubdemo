@@ -101,3 +101,48 @@ for filename in os.listdir(INPUT_DIR):
         print(f" Converted: {filename} → {os.path.basename(xml_path)}")
 
 print("\n All JSON dashboards converted successfully!")
+
+terraform {
+  required_version = ">= 1.5.0"
+
+  required_providers {
+    splunkcloud = {
+      source  = "splunkcloud/splunkcloud"
+      version = "~> 1.0"
+    }
+  }
+}
+
+locals {
+  # Final XML file path
+  xml_file = "${path.module}/dashboard.xml"
+}
+
+# Step 1: Run Python script to convert JSON to XML
+resource "null_resource" "convert_json_to_xml" {
+  triggers = {
+    json_hash = filemd5(var.dashboard_json_file)
+    theme     = var.theme
+  }
+
+  provisioner "local-exec" {
+    command = "python3 ${path.module}/convert.py ${var.dashboard_json_file} ${local.xml_file} --theme \"${var.theme}\""
+  }
+}
+
+# Step 2: Read the generated dashboard.xml
+resource "local_file" "dashboard_xml" {
+  depends_on = [null_resource.convert_json_to_xml]
+
+  filename = local.xml_file
+  content  = file(local.xml_file)
+}
+
+# Step 3: Create or update Splunk Cloud Dashboard
+resource "splunkcloud_dashboard" "dashboard" {
+  depends_on = [local_file.dashboard_xml]
+
+  name       = var.dashboard_name
+  definition = local_file.dashboard_xml.content
+}
+
