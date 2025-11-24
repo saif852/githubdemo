@@ -145,4 +145,43 @@ resource "splunkcloud_dashboard" "dashboard" {
   name       = var.dashboard_name
   definition = local_file.dashboard_xml.content
 }
+locals {
+  normalized_name = replace(lower(trimspace(var.name)), "/\\s+/", "-")
+  dashboard_name      = local.normalized_name
+  team_name       = lower(var.team_name)
+  xml_files = {
+    for k, v in var.cloud_dashboard : k => v.dashboard_file
+  }
+}
+
+resource "null_resource" "dashboard_converter" {
+  triggers = {
+    json_files = join(",", fileset("${path.module}/dashboards_json", "*.json"))
+  }
+
+  provisioner "local-exec" {
+    command = "python test_xml.py"
+    working_dir = "${path.module}"
+  }
+}
+
+# Read the XML files after they're created
+data "local_file" "dashboard_xml" {
+  for_each = var.cloud_dashboard
+  filename = local.xml_files[each.key]
+  
+  depends_on = [null_resource.dashboard_converter]
+}
+
+resource "splunk_data_ui_views" "dashboard" {
+   name     = "${local.team_name}-${local.dashboard_name}"
+   eai_data = data.local_file.dashboard_xml
+
+  acl {
+    owner = var.owner
+    app   = var.app
+  }
+
+  depends_on = [data.local_file.dashboard_xml]
+}
 
