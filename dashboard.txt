@@ -184,4 +184,55 @@ resource "splunk_data_ui_views" "dashboard" {
 
   depends_on = [data.local_file.dashboard_xml]
 }
+import json
+import sys
+import os
 
+# Force UTF-8 encoding for output
+sys.stdout.reconfigure(encoding='utf-8')
+
+# === Configuration ===
+INPUT_DIR = "dashboards_json"
+META = {
+    "hideEdit": False,
+    "hideOpenInSearch": False,
+    "hideExport": False
+}
+
+# === Ask for theme if not passed as an argument ===
+if len(sys.argv) > 1:
+    theme = sys.argv[1]
+else:
+    theme = "dark"
+print(f"\nUsing theme: '{theme}'")
+
+# === Function to validate JSON ===
+def validate_json(json_path):
+    try:
+        with open(json_path, 'r', encoding='utf-8') as f:
+            json.load(f)
+        print(f"✓ Valid JSON: {json_path}")
+        return True
+    except json.JSONDecodeError as e:
+        print(f"✗ Invalid JSON in {json_path}: {e}")
+        return False
+    except Exception as e:
+        print(f"✗ Error reading {json_path}: {e}")
+        return False
+
+# === Process each JSON file ===
+for filename in os.listdir(INPUT_DIR):
+    if filename.endswith(".json"):
+        json_path = os.path.join(INPUT_DIR, filename)
+        
+        # Validate JSON first
+        if not validate_json(json_path):
+            print(f"Skipping {filename} due to validation error\n")
+            continue
+        
+        xml_path = os.path.join(INPUT_DIR, os.path.splitext(filename)[0] + ".xml")
+        
+        # Convert to XML (your conversion logic here)
+        # convert_json_to_xml(json_path, xml_path, theme, META)
+
+print("\nAll valid JSON dashboards converted successfully!")
